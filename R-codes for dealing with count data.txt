@@ -173,15 +173,7 @@ Quasi_pois.mixed <- glmer(Count ~ v1+v2 +(1|ID), family ="quasipoisson",
                                 data = Train)
 
 
-
-```
-
-
-
 ### 4. *Generalized Poisson*
-
-
-```{r, fig.width=6, fig.height=4, warning=FALSE, message=FALSE, eval=FALSE}
 
 # Needed libraries here: please install if you dont have them
 
@@ -194,7 +186,6 @@ library(glmmTMB)
 ### 4a. Generalized Poisson (fixed case): ###
 Gen_pois.fixed <- glmmTMB::glmmTMB(Count ~ v1 + v2, family=genpois(link="log"),
                                    data = Train)
-
 
 ### 4b. Generalized Poisson (mixed case): ###
 Gen_pois.mixed <- glmmTMB::glmmTMB(Count ~ v1+v2 +(1|ID),family=genpois(link="log")
@@ -295,8 +286,6 @@ LRTnu(COM_poisson2)
 # One of the key features of the mpcmp package is that it provides a range of diagnostic plots.
 
 autoplot(COM_poisson2)
-```
-
 
 
 ## CHAPTER-2: Dealing with a Count Response with zero inflation
@@ -376,8 +365,6 @@ zip.mixed2<- glmmTMB(Count ~ v1+v2 + (1|group), ziformula = ~ v1 + v2,
 
 
 
-
-
 ### 2.4 *Zero-inflated Negative binomial*
 
 library(pscl)
@@ -429,8 +416,6 @@ simulationOutput <- simulateResiduals(fittedModel = Propor.fixed1)
 plot(simulationOutput)
 
 
-
-
 ## CHAPTER-4: Models for Binomial(0/1) regression
 
 # 1. Fixed
@@ -468,7 +453,3 @@ tweedie(link = "log")
 ziGamma(link = "inverse")
 t_family(link = "identity")
 ordbeta(link = "logit")
-
-
-
-
