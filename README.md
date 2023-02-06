@@ -4,7 +4,7 @@
 
 ## Introduction
 As a simple introduction, let me first explain what a COUNT data is, in such a way that even a farmer can relate with it. Let us assume the country *Germany* want to
-study the effect of exchange RATE (to Naira), AGE of applicants, TYPE of visa, GENDER of applicant and applicant's level of EDUCation, on NUMBER of monthly visa applications received. The response of interest here is a COUNT (Number of monthly visa applications). These counts cannot include a negative number, the minimum will be zero. And mathematically, the problem can be expressed as:  
+study the effect of exchange RATE (to Naira), AGE of applicant, TYPE of visa, GENDER of applicant and applicant's level of EDUCation, on NUMBER of monthly visa applications received. The response of interest here is a COUNT (Number of monthly visa applications). These counts cannot include a negative number, the minimum will be zero. And mathematically, the problem can be expressed as:  
 
                                      NUMBER = RATE + TYPE + AGE + GENDER + EDUC ---------- (1)  
                                      NUMBER = RATE + TYPE + AGE + GENDER  + (1|EDUC) ----- (2)  
