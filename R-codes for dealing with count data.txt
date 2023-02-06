@@ -1,0 +1,474 @@
+## CHAPTER-0: Data Partition
+
+For the purpose of evaluating your eventual model, it is always a good practice in data analysis to partition your dataset into at least 2 groups/sets. 
+These 2 sets will be called the *Training* and the *Testing* sets respectively. Just as the names imply, the *Training* set is used to fit your model, 
+while the *Testing* set will be used to test how good your model can predict an "unseen" data. The percentage that goes to either of the sets can vary 
+but *Training* set should have more observations than the *Testing* set. It can be in the ratios 60:40, 70:30, 75:25, 80:20 or 85:15 in favour of the 
+*Training* set depending on how big your full data is. 
+
+library(base)
+
+set.seed(123) # For reproducibility
+index <- sample(2,nrow(fulldata),replace = TRUE,p=c(.7,.3)) # ratio 70:30
+Train <- fulldata[index==1,]
+Test <- fulldata[index==2,]
+
+
+* Note: If your goal is simply to study the influence of some explanatory variable on the response variable and interpreting the model estimates, 
+then there is no need to partition your data. In that case the entire dataset will be used in the model.  
+
+
+
+### CHAPTER-1: Dealing with a Count Response 
+
+# Needed libraries here: please install if you dont have them
+library(DHARMa) 
+library(MASS)   
+library(lme4)
+library(glmmTMB)
+library(glmmPQL)
+
+
+## 1a. Regular Poisson (fixed case):
+Poisson.fixed <- glm(Count ~ variables, family="poisson", data = Train)
+
+### Model diagnostics
+simulationOutput <- DHARMa::simulateResiduals(fittedModel = Poisson.fixed)
+plot(simulationOutput)
+
+## 1b. Regular Poisson (Mixed case):
+Poisson.mixed <- glmmTMB(Count ~ variables +(1|ID),family="poisson",data=Train)
+Poisson.mixed2 <- glmer(Count ~ variables +(1|ID),family="poisson", data=Train)
+Poisson.mixed3 <- glmmPQL(Count ~ variables +(1|ID),family="poisson", data=Train)
+
+
+## You can also add an offset
+Poisson.mixed4 <- glmer(Count~ v1*v2 + offset(log(v3)) + (1|ID),
+                              family="poisson",data=Train)
+
+
+### Model diagnostics
+simulationOutput <- simulateResiduals(fittedModel = Poisson.mixed)
+plot(simulationOutput)
+
+
+
+## Prediction with the data that your model have not seen (Test)
+pred1 <- predict(Poisson.fixed, newdata=Test, allow.new.levels=TRUE)
+pred2 <- predict(Poisson.mixed, newdata=Test, allow.new.levels=TRUE)
+
+
+### *Test for dispersion*  
+If our target variable really follows poisson distribution then its variance *V* should be approximately equal to its mean *mu*,
+which is the null hypothesis of the following dispersiontest test against the alternative hypothesis that the variance of the form:
+ 
+* V = mu + alpha(mu)
+
+* if alpha = 0 : equidispersion
+* if alpha < 0 : underdispersion
+* if alpha > 0 : overdispersion
+
+Therefore, the result of the test will depend on the direction of the test, where we have two.sided, 
+greater (default) for the overdispersion, and less for underdispersion.
+
+
+library(AER)
+library(DHARMa)
+
+## method 1
+testDispersion(simulationOutput)
+
+## method 2
+dispersiontest(model)
+dispersiontest(model, alternative = c("two.sided")) #corresponds to either one
+dispersiontest(model, alternative = c("greater")) #corresponds to overdispersion
+dispersiontest(model, alternative = c("less")) #corresponds to underdispersion
+
+
+## method 3 (Most general)
+E <- resid(model, type = "pearson")
+N  <- nrow(data=Train)
+p  <- length(coef(model))   
+Dispersion = sum(E^2) / (N - p)
+Dispersion
+
+
+
+### 2. *Negative Binomial*
+
+We have already learnt that the next option when we have over dispersion is the Negative binomial, 
+especially when the counts are not zero inflated.
+
+
+# Needed libraries here: please install if you dont have them
+
+library(VGAM) 
+library(VGAMextra)
+library(DHARMa)
+library(MASS)
+library(lme4)
+library(pscl)
+library(glmmTMB)
+
+
+### 2a. Negative Binomial (fixed case): ###
+
+negbin.fixed <- MASS::glm.nb(Count ~ variables, data = Train)
+negbin.fixed2 <- MASS::glm.nb(Count ~ variables, family=nbiom1, data = Train)
+negbin.fixed3 <- MASS::glm.nb(Count ~ variables, family=nbiom2, data = Train)
+negbin.fixed4 <- VGAM::vglm(Count ~ variables, family = posnegbinomial(),data=Train)
+
+### introducing dispersion formular ###
+negbin.fixed5 <- glmmTMB::glmmTMB(Count ~ v1+v2, dispformula = ~ v1, 
+                                  family = nbinom1, data=Train)
+
+
+### Model diagnostics ####
+simulationOutput <- DHARMa::simulateResiduals(fittedModel = negbin.fixed)
+plot(simulationOutput)
+
+### 2b. Negative Binomial (Mixed case): ###
+negbin.mixed <- glmmTMB::glmmTMB(Count ~ variables +(1|ID), family=nbiom1, data = Train)
+negbin.mixed2 <- glmmTMB::glmmTMB(Count ~ variables +(1|ID), family=nbiom2, data = Train)
+negbin.mixed3 <- MASS::glmer.nb(Count ~ v1 + v2 + (1|ID), data=dd, verbose=TRUE)
+
+negbin.mixed4 <- VGAM::vglm(Count ~ variables + (1|ID), family = posnegbinomial(),
+                            data = Train)
+
+
+## You can also add an offset
+negbin.mixed5 <- glmmTMB(Count~v1*v2+offset(log(v3))+(1|ID),family=nbinom1,data=Train)
+
+
+### Model diagnostics
+simulationOutput <- DHARMa::simulateResiduals(fittedModel = negbin.mixed)
+plot(simulationOutput)                                                         
+
+
+## Prediction with the data that your model have not seen (Test)
+pred3 <- predict(negbin.fixed, newdata=Test, se.fit=TRUE, type='response')
+
+
+### 3. *Quasi-Poisson*
+
+There is another alternative if neither the poisson distribution nor the negative binomial are suitable called the Quasi maximum likelihood. 
+The advantage of this method is that uses only the relationship between the mean and the variance and does not require any pre-specified distribution. 
+Moreover, its estimators are approximately as efficient as the maximum likelihood estimators. 
+This model uses the quasi maximum likelihood which gives the same coefficient estimates with the regular *Poisson* but with different (corrected) standard errors. 
+The only issue here is that this model does not allow AIC to be calculated, rather it leaves you with loglikelihood, which is equally fine.
+
+
+# Needed libraries here: please install if you dont have them
+
+library(MASS)
+library(lme4)
+
+
+### 3a. Quasi Poisson (fixed case): ###
+Quasi_pois.fixed <- glm(Count ~ variables, data = Train)
+
+
+### 3b. Quasi Poisson  (Mixed case): ###
+Quasi_pois.mixed <- glmer(Count ~ v1+v2 +(1|ID), family ="quasipoisson",
+                                data = Train)
+
+
+
+```
+
+
+
+### 4. *Generalized Poisson*
+
+
+```{r, fig.width=6, fig.height=4, warning=FALSE, message=FALSE, eval=FALSE}
+
+# Needed libraries here: please install if you dont have them
+
+library(VGAM) 
+library(VGAMextra)
+library(DHARMa)
+library(glmmTMB)
+
+
+### 4a. Generalized Poisson (fixed case): ###
+Gen_pois.fixed <- glmmTMB::glmmTMB(Count ~ v1 + v2, family=genpois(link="log"),
+                                   data = Train)
+
+
+### 4b. Generalized Poisson (mixed case): ###
+Gen_pois.mixed <- glmmTMB::glmmTMB(Count ~ v1+v2 +(1|ID),family=genpois(link="log")
+                                   ,data=Train)
+
+
+### Model diagnostics
+simulationOutput <- DHARMa::simulateResiduals(fittedModel = Gen_pois.fixed)
+plot(simulationOutput)  
+
+
+
+###########################################################################
+# Using the vglm() from VGAM
+#########################################
+
+
+# Fixed
+Gen_poisson0 <- vglm(Count ~ v1+v2, family = genpoisson0, data = Train)
+Gen_poisson1 <- vglm(Count ~ v1+v2, family = genpoisson1, data = Train)
+Gen_poisson2 <- vglm(Count ~ v1+v2, family = genpoisson2, trace = TRUE, data = Train)
+
+
+# Mixed
+Gen_poisson4 <- vglm(Count ~ v1+v2+(1|ID), family = genpoisson0, data = Train)
+Gen_poisson5 <- vglm(Count ~ v1+v2+(1|ID), family = genpoisson1, data = Train)
+Gen_poisson6 <- vglm(Count ~ v1+v2+(1|ID), family = genpoisson2, trace = TRUE, 
+                     data = Train)
+
+
+
+### 5. *Conway-Maxwell Poisson (COM-Poisson)*
+Note that the glmmTMB package also supports COM-Poisson (family = compois) 
+
+
+# Needed libraries here: please install if you dont have them
+library(mpcmp)
+library(DHARMa)
+library(glmmTMB)
+library(COMPoissonReg)
+
+###########################################################################
+# Using the COMpois from glmmTMB
+#########################################
+
+### 5a. COM-Poisson (fixed case): ###
+COM_pois.fixed <- glmmTMB::glmmTMB(Count ~ v1 + v2, family = compois(link = "log"),
+                                   data = Train)
+
+### 5b. COM-Poisson (mixed case): ###
+COM_pois.mixed <- glmmTMB::glmmTMB(Count ~ v1 + v2 +(1|ID),
+                                   family = compois(link= "log"),data =Train)
+
+
+
+######################################################################
+# https://cran.r-project.org/web/packages/COMPoissonReg/COMPoissonReg.pdf
+########################################################################
+COM_poisson <- COMPoissonReg::glm.cmp(Count ~v1 + v2, data = Train)
+print(COM_poisson)
+coef(COM_poisson)
+nu(COM_poisson)[1]
+
+
+# Compute associated standard errors
+sdev(COM_poisson)
+
+# Get the full covariance matrix for the estimates
+# vcov(COM_poisson)
+
+
+# Likelihood ratio test for dispersion parameter
+# Test for H_0: dispersion equal to 1 vs. H_1: not equal to 1
+# (i.e. Poisson vs. COM-Poisson regression models)
+lrt = COMPoissonReg::equitest(COM_poisson)
+
+
+# Compute constant COM-Poisson leverage
+lev = COMPoissonReg::leverage(COM_poisson)
+
+
+###########################################################################
+# Using the COMpois from mpcmp package
+#########################################
+# https://thomas-fung.github.io/mpcmp/articles/mpcmp.html
+
+devtools::install_github("thomas-fung/mpcmp")
+library(mpcmp)
+
+COM_poisson2 <- glm.cmp(Count ~v1 + v2, data = Train)
+
+# To see whether a simpler Poisson model, i.e. ?=1 is adequate, we can run the model through the LRTnu() function:
+
+LRTnu(COM_poisson2)
+
+"As the P-value is small, we conclude that dispersion is present in this data set."
+
+# One of the key features of the mpcmp package is that it provides a range of diagnostic plots.
+
+autoplot(COM_poisson2)
+```
+
+
+
+## CHAPTER-2: Dealing with a Count Response with zero inflation
+
+Just as we have seen before that, when:
+
+* Equidispersion : Use Regular poisson
+* Overdispersion : Use Negative Binomial, Quasipoisson,  
+* Underdispersion : Use COM-Poisson , Generalized Poisson
+
+Additionally, when:
+
+* Equidispersion : Use Hurdle or truncated Poisson, Zero-inflated Poisson
+* Overdispersion : Use Hurdle or truncated Negative binomial, Zero-inflated Negative binomial, COM-Poisson , Generalized Poisson 
+
+
+### 2.1 *Hurdle or truncated Poisson*
+
+library(pscl)
+library(AER)
+
+# 1a. Hurdle or truncated Poisson (fixed)
+hpoisson.fixed1 <- VGAM::vglm(Count ~ v1 + v2, family = pospoisson(), data = Train)
+hpoisson.fixed2 <- pscl::hurdle(Count ~ v1+v2, link = "logit", 
+                                dist = "poisson", data = Train)
+
+hpoisson.fixed3 <- glmmTMB(count ~ v1+v2 + (1|group), zi=~v1+v2, 
+                           family=truncated_poisson, data=Train)
+
+# 1b. Hurdle or truncated Poisson (mixed)
+
+hpoisson.mixed <- pscl::hurdle(Count ~ v1+v2|group, link = "logit", 
+                               dist="poisson",data = Train)
+
+hpoisson.mixed2 <- glmmTMB(count ~ v1+v2 + (1|group), zi=~v1+v2, 
+                           family=truncated_poisson, data=Train)
+
+
+
+### 2.2 *Hurdle or truncated Negative binomial*
+
+library(pscl)
+library(AER)
+
+# 2a. Hurdle or truncated Negative binomial (fixed)
+
+hnegbin.fixed <- hurdle(Count ~ v1+v2, link = "logit", dist = "negbin", data = Train)
+hnegbin.fixed2 <- glmmTMB(count ~ v1 + v2, zi = ~ v1+v2, 
+                           family=truncated_nbinom1, data=Train)
+
+
+# 2b. Hurdle or truncated Negative binomial (mixed)
+hnegbin.mixed <- hurdle(Count ~ v1+v2 | group, link = "logit", dist = "negbin",
+                        data = Train)
+hnegbin.mixed2 <- glmmTMB(count ~ v1+v2 + (1|group), zi=~v1+v2, 
+                           family=truncated_nbinom1, data=Train)
+
+
+
+### 2.3 *Zero-Inflated Poisson*
+
+library(pscl)
+
+# 3a. Zero-Inflated Poisson (fixed)
+
+zip.fixed <- zeroinfl(Count ~ v1+v2 , link = "logit", dist = "poisson", data = Train)
+zip.fixed2<- glmmTMB(Count ~ v1+v2, ziformula = ~ v1 + v2, family="poisson",data=Train)
+
+
+# 3b. Zero-Inflated Poisson (mixed)
+
+zip.mixed <- zeroinfl(Count ~ v1+v2 | group, link = "logit", dist = "poisson", 
+                      data = Train)
+
+zip.mixed2<- glmmTMB(Count ~ v1+v2 + (1|group), ziformula = ~ v1 + v2, 
+                     family="poisson",data=Train)
+
+
+
+
+
+### 2.4 *Zero-inflated Negative binomial*
+
+library(pscl)
+
+# 4a. Zero-Inflated N-B (fixed)
+ZINB.fixed<- zeroinfl(Count ~ v1+v2| group, link = "logit", dist = "negbin",data = Train)
+ZINB.fixed2<- glmmTMB(Count ~ v1+v2, ziformula = ~ v1 + v2, family = nbinom1,data=Train)
+
+# adding dispersion formular
+ZINB.fixed3<- glmmTMB(Count ~ v1+v2, dispformula = ~ v1 , 
+                      ziformula = ~ v1 + v2, family = nbinom1, data=Train)
+
+
+# 4a. Zero-Inflated N-B (mixed)
+
+ZINB.mixed <- zeroinfl(Count ~ v1+v2| group, link = "logit", dist = "negbin",
+                       data = Train)
+
+ZINB.mixed2<- glmmTMB(Count ~ v1+v2 + (1|group), ziformula = ~ v1 + v2, 
+                      family = nbinom1, data=Train) # or nbinom2
+
+# adding dispersion formular
+ZINB.mixed3<- glmmTMB(Count ~ v1+v2 + (1|group), dispformula = ~ v1 , 
+                      ziformula = ~ v1 + v2, family = nbinom1, data=Train)
+
+
+## CHAPTER-3: Models for Proportion (p/n)
+
+
+## Binomial model
+
+# 1. Fixed
+Propor.fixed1 <- glm(cbind(incidence, size-incidence) ~ v1 + v2, 
+                  family=binomial, data=Train)
+
+Propor.fixed2 <- glm(cbind(incidence, size-incidence) ~ v1 + v2, 
+                  family=binomial, data=Train)
+
+# 2. Mixed
+Propor.mixed1 <- glmer(cbind(incidence, size-incidence) ~ v1 + v2 + (1|group),
+                  family=binomial, data=Train)
+
+Propor.mixed2 <- glmmTMB(cbind(incidence, size-incidence) ~ v1 + v2 + (1|group), 
+                  family=binomial, data=Train)
+
+
+# diagnostics
+simulationOutput <- simulateResiduals(fittedModel = Propor.fixed1)
+plot(simulationOutput)
+
+
+
+
+## CHAPTER-4: Models for Binomial(0/1) regression
+
+# 1. Fixed
+Binary.fixed <- glm(Binary ~ v1 + v2, family = "binomial", data = Train)
+
+
+# 2. Mixed
+Binary.mixed <- glmer(Binary ~ v1 + v2 + (1|group),
+                  family=binomial, data=Train)
+
+Binary.mixed2 <- glmmTMB(Binary ~ v1 + v2 + (1|group),
+                  family=binomial, data=Train)
+
+
+
+res <- simulateResiduals(fittedModel = Binary.fixed)
+plot(res)
+
+
+## Other Families of glmmTMB
+
+poisson(link = "log")
+nbinom2(link = "log")
+nbinom1(link = "log")
+compois(link = "log")
+truncated_compois(link = "log")
+genpois(link = "log")
+truncated_genpois(link = "log")
+truncated_poisson(link = "log")
+truncated_nbinom2(link = "log")
+truncated_nbinom1(link = "log")
+beta_family(link = "logit")
+betabinomial(link = "logit")
+tweedie(link = "log")
+ziGamma(link = "inverse")
+t_family(link = "identity")
+ordbeta(link = "logit")
+
+
+
+
