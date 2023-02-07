@@ -18,7 +18,6 @@ Test <- fulldata[index==2,]
 then there is no need to partition your data. In that case the entire dataset will be used in the model.  
 
 
-
 ### CHAPTER-1: Dealing with a Count Response 
 
 # Needed libraries here: please install if you dont have them
@@ -151,7 +150,7 @@ pred3 <- predict(negbin.fixed, newdata=Test, se.fit=TRUE, type='response')
 
 ### 3. *Quasi-Poisson*
 
-There is another alternative if neither the poisson distribution nor the negative binomial are suitable called the Quasi maximum likelihood. 
+There is another alternative if neither the poisson distribution nor the negative binomial are suitable called the Quasi likelihood. 
 The advantage of this method is that uses only the relationship between the mean and the variance and does not require any pre-specified distribution. 
 Moreover, its estimators are approximately as efficient as the maximum likelihood estimators. 
 This model uses the quasi maximum likelihood which gives the same coefficient estimates with the regular *Poisson* but with different (corrected) standard errors. 
