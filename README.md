@@ -32,4 +32,7 @@ They include (in addition to the list above): For,
 
 • **Underdispersion** use the COM-Poisson regression or Generalized Poisson regression.
 
-At the beginning of the note, the flow chart for the topic of discussion clearly explains everything I have written so far pictorially. If you have any questions/comments/suggestions you can reach me via email on ikedichi.edward.azuh@biom.uni-freiburg.de
+At the beginning of the note, the flow chart for the topic of discussion clearly explains everything I have written so far pictorially. 
+The step-by-step way to carry out the building of all the model in both R and Python can be found in this repository. In the codes, there was no dataset used, but you can always plug in your data and fit any of the models. The idea is to have a guide on what model method is best to use in any particular condition of your COUNT data.
+
+If you have any questions/comments/suggestions you can reach me via email on ikedichi.edward.azuh@biom.uni-freiburg.de
