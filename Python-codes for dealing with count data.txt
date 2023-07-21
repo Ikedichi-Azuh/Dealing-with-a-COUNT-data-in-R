@@ -1,0 +1,166 @@
+## Call the needed libraries
+
+import pandas as pd
+from patsy import dmatrices
+import numpy as np
+import statsmodels.api as sm
+import matplotlib.pyplot as plt
+
+## Import data
+
+df = pd.read_csv('Data_of_interest.csv', header=0, index_col=[0])
+
+## Split dataset into training and testing.
+
+splitting = np.random.rand(len(df)) < 0.75
+df_train = df[splitting]
+df_test = df[~splitting]
+
+## Now setup the regression expression in patsy notation. 
+
+Expr = """COUNT ~ V1  + V2 + V3 """
+
+Set up the X and y matrices for the training and testing datasets.
+
+y_train, X_train = dmatrices(Expr, df_train, return_type='dataframe')
+y_test, X_test = dmatrices(Expr, df_test, return_type='dataframe')
+
+#########################################################
+## 1. POISSON regression
+########################################################
+poisson_fit = sm.GLM(y_train, X_train, family=sm.families.Poisson()).fit()
+
+## Print summary
+print(poisson_fit.summary())
+
+## Predictions on the test data
+poisson_pred = poisson_fit.get_prediction(X_test)
+
+## .summary_frame() returns a pandas DataFrame
+pred_summary_frame = poisson_pred.summary_frame()
+print(pred_summary_frame)
+
+pred_counts=pred_summary_frame['mean']
+actual_counts = y_test['COUNT']
+
+## Plot the predicted counts versus the actual counts for the testdata.
+fig = plt.figure()
+fig.suptitle('Predicted versus Actual dataset')
+predicted, = plt.plot(X_test.index, pred_counts, 'go-', label='Predicted counts')
+actual, = plt.plot(X_test.index, actual_counts, 'ro-', label='Actual counts')
+plt.legend(handles=[predicted, actual])
+plt.show()
+
+## Show scatter plot of Actual versus Predicted counts
+plt.clf()
+fig = plt.figure()
+fig.suptitle('Scatter plot of Actual versus Predicted counts')
+plt.scatter(x=pred_counts, y=actual_counts, marker='.')
+plt.xlabel('Predicted counts')
+plt.ylabel('Actual counts')
+plt.show()
+
+#########################################################
+## 2. ZERO-INFLATED POISSON regression
+#########################################################
+
+zip_fit = sm.ZeroInflatedPoisson(endog=y_train, exog=X_train, exog_infl=X_train, inflation='logit').fit()
+
+print(zip_fit.summary())
+
+## Prediction
+
+zip_pred = zip_fit.predict(X_test,exog_infl=X_test)
+
+pred_counts=np.round(zip_pred)
+actual_counts = y_test['COUNT']
+
+print('ZIP RMSE='+str(np.sqrt(np.sum(np.power(np.subtract(pred_counts,actual_counts),2)))))
+
+## Plot the predicted versus actual fish counts:
+
+fig = plt.figure()
+fig.suptitle('Predicted versus actual counts using the ZIP model')
+predicted, = plt.plot(X_test.index, pred_counts, 'go-', label='Predicted')
+actual, = plt.plot(X_test.index, actual_counts, 'ro-', label='Actual')
+plt.legend(handles=[predicted, actual])
+plt.show()
+
+#########################################################
+## 3. Negative Binomial regression
+#########################################################
+
+NB_fit = sm.GLM(y_train, X_train,family=sm.families.NegativeBinomial()).fit()
+
+print(NB_fit.summary())
+
+## Prediction
+NB_pred = NB_fit.get_prediction(X_test)
+
+## Print out the predictions
+NBpred_summary_frame = NB_pred.summary_frame()
+print(NBpred_summary_frame)
+
+## Plot the predicted counts versus the actual counts for the test data
+pred_counts=NBpred_summary_frame['mean']
+actual_counts = y_test['COUNT']
+fig = plt.figure()
+fig.suptitle('Predicted versus actual COUNTS')
+predicted, = plt.plot(X_test.index, pred_counts, 'go-', label='Predicted counts')
+actual, = plt.plot(X_test.index, actual_counts, 'ro-', label='Actual counts')
+plt.legend(handles=[predicted, actual])
+plt.show()
+
+#########################################################
+## 4. GENERALIZED POISSON (GP)
+#########################################################
+
+## 4.1 CONSUL's GP-1
+##########################
+gen_poisson1 = sm.GeneralizedPoisson(y_train, X_train, p=1)
+
+#Fit the model
+gen_poisson1_result = gen_poisson1.fit()
+
+#print the results
+print(gen_poisson1_result.summary())
+
+# Predictions
+gen_poisson1_pred = gen_poisson1_result.predict(X_test)
+
+pred_counts=gen_poisson1_pred
+actual_counts = y_test['COUNT']
+
+fig = plt.figure()
+fig.suptitle('Predicted versus actual COUNTS')
+predicted, = plt.plot(X_test.index, pred_counts, 'go-', label='Predicted counts')
+actual, = plt.plot(X_test.index, actual_counts, 'ro-', label='Actual counts')
+plt.legend(handles=[predicted, actual])
+plt.show()
+
+
+## 4.2 FAMOYE's GP-2
+#############################
+
+gen_poisson2 = sm.GeneralizedPoisson(y_train, X_train, p=2)
+
+#Fit the model
+gen_poisson2_result = gen_poisson2.fit()
+
+#print the results
+print(gen_poisson2_result.summary())
+
+
+######################################################################
+## OTHER models from statsmodel.discrete
+#####################################################################
+
+from statsmodels.discrete.discrete_model import (
+    Poisson, NegativeBinomial, NegativeBinomialP, GeneralizedPoisson)
+
+from statsmodels.discrete.count_model import (
+    ZeroInflatedPoisson,ZeroInflatedGeneralizedPoisson,ZeroInflatedNegativeBinomialP)
+
+from statsmodels.discrete.truncated_model import (
+    TruncatedLFPoisson,TruncatedLFNegativeBinomialP,_RCensoredPoisson,HurdleCountModel,
+    )
