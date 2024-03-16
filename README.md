@@ -1,4 +1,4 @@
-# Dealing-with-a-COUNT-data-in-R
+# Dealing-with-a-COUNT-data-in-R-and-Python
 
 ![CountFLOWchart](https://user-images.githubusercontent.com/124582074/216988012-a4fbcf69-fe10-4bd9-b342-1019b3d8483d.jpg)
 
