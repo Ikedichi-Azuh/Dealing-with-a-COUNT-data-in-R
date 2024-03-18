@@ -1,8 +1,15 @@
 # Dealing-with-a-COUNT-data-in-R-and-Python
 
 ![CountFLOWchart](https://user-images.githubusercontent.com/124582074/216988012-a4fbcf69-fe10-4bd9-b342-1019b3d8483d.jpg)
+In this introductory tutorial, we explore the fundamentals of handling count data, emphasizing considerations for Over-, Under-, and Equi-dispersions, as well as addressing zero inflation in the dataset. Count data analysis is essential in various fields, including epidemiology, ecology, and finance, where variables represent counts of events or occurrences.
 
-## Introduction
+We'll begin by understanding the concept of dispersion, which refers to the variability of count data around its mean. Over-dispersion occurs when the variance exceeds the mean, while under-dispersion occurs when the variance is less than the mean. Equi-dispersion occurs when the variance is equal to the mean.
+
+Next, we'll discuss strategies for identifying and addressing zero inflation, where an excessive number of zero counts are present in the dataset. Techniques such as zero-inflated models and hurdle models will be introduced to effectively model and analyze count data with zero inflation.
+
+Through practical examples and hands-on exercises, participants will gain a solid understanding of count data analysis techniques and learn how to apply them to real-world datasets effectively. This tutorial serves as a foundational step in mastering the complexities of count data analysis and is suitable for beginners and intermediate-level learners alike.
+
+## 
 As a simple introduction, let me first explain what a COUNT data is, in such a way that even a farmer can relate with it. Let us assume the country *Germany* want to
 study the effect of exchange RATE (to Naira), AGE of applicant, TYPE of visa, GENDER of applicant and applicant's level of EDUCation, on NUMBER of monthly visa applications received. The response of interest here is a COUNT (Number of monthly visa applications). These counts cannot include a negative number, the minimum will be zero. And mathematically, the problem can be expressed as:  
 
